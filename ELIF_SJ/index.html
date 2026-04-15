@@ -63,7 +63,7 @@ tr:last-child td{border-bottom:none}
 .hidden{display:none}
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;z-index:300}
+.loading-overlay{display:none}
 .lookup-booking-item{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #f0f0f0}
 .lookup-booking-item:last-child{border-bottom:none}
 </style>
@@ -261,7 +261,14 @@ async function fetchTaken(){
   takenKeys=new Set((data||[]).map(r=>r.slot_key));
 }
 
-function showLoading(v){document.getElementById('loading').classList.toggle('hidden',!v);}
+function showLoading(v){
+  const el=document.getElementById('loading');
+  if(el) el.style.display=v?'flex':'none';
+  if(v){
+    const sa=document.getElementById('slot-area');
+    if(sa) sa.innerHTML='<div style="text-align:center;padding:2rem;color:#888;font-size:13px"><div style="width:28px;height:28px;border:2px solid #ddd;border-top-color:#1a7a5e;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 8px"></div>불러오는 중...</div>';
+  }
+}
 
 function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
