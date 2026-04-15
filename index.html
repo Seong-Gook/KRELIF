@@ -274,7 +274,7 @@ async function renderSlots(){
       if(t){
         html+='<div class="slot taken"><div class="slot-time">'+s.label+'</div><div class="slot-status">예약완료</div></div>';
       }else{
-        html+='<div class="slot" onclick="selectSlot(&quot;'+s.key+'&quot;,&quot;'+s.label+'&quot;,&quot;'+day+'&quot;)"><div class="slot-time">'+s.label+'</div></div>';
+        html+='<div class="slot" data-key="'+s.key+'" data-label="'+s.label+'" data-day="'+day+'" onclick="selectSlotEl(this)"><div class="slot-time">'+s.label+'</div></div>';
       }
     });
     html+='</div>';
@@ -284,6 +284,9 @@ async function renderSlots(){
   }
 }
 
+function selectSlotEl(el){
+  selectSlot(el.dataset.key, el.dataset.label, el.dataset.day);
+}
 function selectSlot(key,label,day){
   selectedSlot={key,label,day};
   document.getElementById('booking-slot-info').textContent=DAY_LABELS[DAYS.indexOf(day)]+'  '+label;
