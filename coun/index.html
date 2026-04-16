@@ -309,8 +309,7 @@ function renderSlots(){
     sbFetch('GET','bookings_2?select=slot_key'),
     sbFetch('GET','blocked_slots?select=slot_key')
   ]).then(function(res){
-    takenKeys={};blockedKeys={};
-    var slotCount={};
+    takenKeys={};blockedKeys={};slotCount={};
     (res[0]||[]).forEach(function(r){
       slotCount[r.slot_key]=(slotCount[r.slot_key]||0)+1;
       if(slotCount[r.slot_key]>=2)takenKeys[r.slot_key]=true;
