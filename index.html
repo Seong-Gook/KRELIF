@@ -9,7 +9,7 @@
 body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#F5F0E8;color:#2C2C2C;min-height:100vh}
 .wrap{max-width:720px;margin:0 auto;padding:1.5rem 1rem}
 .header{background:#fff;border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1rem;border:1px solid #E8E0D4;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.logo{height:28px;width:auto}
+.logo{height:36px;width:auto}
 .hdiv{width:1px;height:26px;background:#D5CCC0;flex-shrink:0}
 .htxt{flex:1;min-width:0}
 .htitle{font-size:13px;font-weight:600;color:#1C4A35}
@@ -484,7 +484,7 @@ function doAdminCancel(){
 }
 
 function exportCSV(){
-  var csv='﻿날짜,시간,성함,연락처,동,호
+  var csv='날짜,시간,성함,연락처,동,호
 ';
   DAYS.forEach(function(day,di){
     ALL_SLOTS[day].forEach(function(s){
