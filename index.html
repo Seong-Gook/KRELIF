@@ -8,7 +8,8 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#F5F0E8;color:#2C2C2C;min-height:100vh}
 .wrap{max-width:720px;margin:0 auto;padding:1.5rem 1rem}
-.header{background:#fff;border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1rem;border:1px solid #E8E0D4;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.header{background:#fff;border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1rem;border:1px solid #E8E0D4;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.hbtns{display:flex;gap:6px;flex-shrink:0}
 .logo{height:36px;width:auto}
 .hdiv{width:1px;height:26px;background:#D5CCC0;flex-shrink:0}
 .htxt{flex:1;min-width:0}
@@ -89,17 +90,22 @@ td{padding:8px 8px;border-bottom:1px solid #F0EAE2;vertical-align:middle}
 @media(max-width:480px){
   .grid{grid-template-columns:repeat(2,1fr)}
   .header{flex-wrap:wrap}
+  .hbtns{width:100%;justify-content:flex-end;margin-top:2px}
+  .htitle{font-size:12px}
+  .hsub{font-size:10px}
 }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="header">
-    <img class="logo" src="ELIF_logo.jpg" alt="ELIF" onerror="this.outerHTML='<div style=\'font-size:18px;font-weight:700;letter-spacing:0.18em;color:#1C4A35;font-family:Georgia,serif\'>ELIF</div>'">
-    <div class="hdiv"></div>
-    <div class="htxt">
-      <div class="htitle">홈스타일링 전문가 1:1 맞춤 상담 예약</div>
-      <div class="hsub">ELIF세종 스마트시티 · 특화옵션 전문 상담 · 4/24(금) ~ 4/25(토)</div>
+    <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
+      <img class="logo" src="ELIF_logo.jpg" alt="ELIF" onerror="this.outerHTML='&lt;div style=&quot;font-size:18px;font-weight:700;letter-spacing:0.18em;color:#1C4A35;font-family:Georgia,serif&quot;&gt;ELIF&lt;/div&gt;'">
+      <div class="hdiv"></div>
+      <div class="htxt">
+        <div class="htitle">홈스타일링 전문가 1:1 맞춤 상담 예약</div>
+        <div class="hsub">ELIF세종 스마트시티 · 특화옵션 전문 상담 · 4/24(금) ~ 4/25(토)</div>
+      </div>
     </div>
     <div class="hbtns">
       <button class="btn sm" id="btn-lookup">예약 조회</button>
@@ -122,7 +128,7 @@ td{padding:8px 8px;border-bottom:1px solid #F0EAE2;vertical-align:middle}
         <div class="badges">
           <span class="badge bg">● 예약 가능</span>
           <span class="badge bt">● 예약 완료</span>
-          <span class="badge bb">● 운영 제외</span>
+          <span class="badge bb">● 예약불가</span>
         </div>
       </div>
       <div id="slot-area"></div>
@@ -199,8 +205,8 @@ td{padding:8px 8px;border-bottom:1px solid #F0EAE2;vertical-align:middle}
     </div>
     <div class="sgrid" id="admin-stats"></div>
     <div class="card" style="margin-bottom:1rem">
-      <div class="stitle" style="margin-bottom:0.5rem">운영 제외 시간 관리</div>
-      <p style="font-size:11px;color:#9A8E82;margin-bottom:1rem">클릭하면 차단/해제됩니다. 차단된 시간은 예약자에게 "운영 제외"로 표시됩니다.</p>
+      <div class="stitle" style="margin-bottom:0.5rem">예약불가 시간 관리</div>
+      <p style="font-size:11px;color:#9A8E82;margin-bottom:1rem">클릭하면 차단/해제됩니다. 차단된 시간은 예약자에게 "예약불가"로 표시됩니다.</p>
       <div class="daytabs" style="margin-bottom:0.75rem">
         <button class="daytab on" data-bday="0" style="padding:8px"><span style="font-size:13px;font-weight:600">4월 24일 (금)</span></button>
         <button class="daytab" data-bday="1" style="padding:8px"><span style="font-size:13px;font-weight:600">4월 25일 (토)</span></button>
@@ -324,7 +330,7 @@ function makeGrid(slots){
     el.className='slot'+(tk?' taken':bl?' blocked':'');
     el.innerHTML='<div class="stime">'+s.label+'</div>';
     if(tk)el.innerHTML+='<div class="sstatus">예약완료</div>';
-    else if(bl)el.innerHTML+='<div class="sblocked">운영 제외</div>';
+    else if(bl)el.innerHTML+='<div class="sblocked">예약불가</div>';
     if(!tk&&!bl)(function(slot){el.onclick=function(){selectSlot(slot);};})(s);
     g.appendChild(el);
   });
@@ -426,7 +432,7 @@ function renderAdmin(){
     document.getElementById('admin-stats').innerHTML=
       '<div class="scard"><div class="snum">'+taken+'</div><div class="slbl">전체 예약</div></div>'+
       '<div class="scard"><div class="snum">'+(total-taken-blocked)+'</div><div class="slbl">잔여 시간</div></div>'+
-      '<div class="scard"><div class="snum">'+blocked+'</div><div class="slbl">운영 제외</div></div>';
+      '<div class="scard"><div class="snum">'+blocked+'</div><div class="slbl">예약불가</div></div>';
     renderBlockArea();renderAdminTable();
   }).catch(function(e){alert('오류: '+e.message);});
 }
@@ -463,7 +469,7 @@ function renderAdminTable(){
   slots.forEach(function(s){
     var b=map[s.key],bl=blockedKeys[s.key];
     if(b){html+='<tr><td>'+s.label+'</td><td>'+b.name+'</td><td>'+b.phone+'</td><td>'+(b.dong||'-')+'동 '+(b.ho||'-')+'호</td><td><span class="badge bt">예약완료</span></td><td><button class="btn sm danger" data-id="'+b.id+'" data-label="'+s.label+'" data-name="'+b.name+'">취소</button></td></tr>';}
-    else if(bl){html+='<tr style="opacity:0.5"><td>'+s.label+'</td><td colspan="3" style="color:#C8A870">운영 제외</td><td><span class="badge bb">제외</span></td><td></td></tr>';}
+    else if(bl){html+='<tr style="opacity:0.5"><td>'+s.label+'</td><td colspan="3" style="color:#C8A870">예약불가</td><td><span class="badge bb">제외</span></td><td></td></tr>';}
     else{html+='<tr><td>'+s.label+'</td><td style="color:#C5BDB4">-</td><td style="color:#C5BDB4">-</td><td style="color:#C5BDB4">-</td><td><span class="badge bg">가능</span></td><td></td></tr>';}
   });
   html+='</tbody></table>';
