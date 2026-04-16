@@ -254,7 +254,7 @@ var DAYS=['2026-04-24','2026-04-25'];
 var DAY_LABELS=['4월 24일 (금)','4월 25일 (토)'];
 var currentDay=0,adminDay=0,blockDay=0;
 var selectedSlot=null,pendingCancelId=null,adminCancelId=null;
-var takenKeys={},blockedKeys={},allBookings=[];
+var takenKeys={},blockedKeys={},allBookings=[],slotCount={};
 
 function genSlots(day,startH){
   var s=[];
