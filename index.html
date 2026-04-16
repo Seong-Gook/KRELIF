@@ -118,8 +118,7 @@ td{padding:8px 8px;border-bottom:1px solid #F0EAE2;vertical-align:middle}
         <button class="daytab on" data-day="0"><span class="dtdate">4월 24일</span><span class="dtday">금요일</span></button>
         <button class="daytab" data-day="1"><span class="dtdate">4월 25일</span><span class="dtday">토요일</span></button>
       </div>
-      <div class="infobar">
-        <div class="count-text" id="count-text"></div>
+      <div class="infobar" style="justify-content:flex-end">
         <div class="badges">
           <span class="badge bg">● 예약 가능</span>
           <span class="badge bt">● 예약 완료</span>
@@ -127,6 +126,7 @@ td{padding:8px 8px;border-bottom:1px solid #F0EAE2;vertical-align:middle}
         </div>
       </div>
       <div id="slot-area"></div>
+      <div style="text-align:right;margin-top:10px;font-size:11px;color:#9A8E82" id="count-text"></div>
     </div>
   </div>
 
@@ -308,7 +308,7 @@ function renderSlots(){
     (res[1]||[]).forEach(function(r){blockedKeys[r.slot_key]=true;});
     var day=DAYS[currentDay],slots=ALL_SLOTS[day],avail=0;
     slots.forEach(function(s){if(!takenKeys[s.key]&&!blockedKeys[s.key])avail++;});
-    document.getElementById('count-text').textContent='잔여 '+avail+'/'+slots.length+' 상담 시간';
+    document.getElementById('count-text').textContent='남은 상담시간 '+avail+'/'+slots.length;
     var am=slots.filter(function(s){return s.h<12;}),pm=slots.filter(function(s){return s.h>=12;});
     sa.innerHTML='';
     if(am.length){var h=document.createElement('div');h.className='section-head';h.textContent='오전';sa.appendChild(h);sa.appendChild(makeGrid(am));}
