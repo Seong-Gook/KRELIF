@@ -245,7 +245,7 @@ var SB_URL='https://liqireuoeyqrkgcdfwlp.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpcWlyZXVvZXlxcmtnY2Rmd2xwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMjA3MzUsImV4cCI6MjA5MTc5NjczNX0.SFGk8r0O90n863WXiiNM1nB3j8Vk_WxnTPyZU4nWMV4';
 var ADMIN_PW='admin1349';
 var DAYS=['2026-04-24','2026-04-25'];
-var DAY_LABELS=['4월 24일 (금)','4월 25일 (토)'];
+var DAY_LABELS=['월4월 24일 (금)','월4월 25일 (토)'];
 var currentDay=0,adminDay=0,blockDay=0;
 var selectedSlot=null,pendingCancelId=null,adminCancelId=null;
 var takenKeys={},blockedKeys={},allBookings=[];
@@ -483,16 +483,16 @@ function doAdminCancel(){
   }).catch(function(e){alert('오류: '+e.message);});
 }
 
-function exportCSV(){
-  var csv='날짜,시간,성함,연락처,동,호
-';
+function doExportCSV(){
+  var rows=['날짜,시간,성함,연락처,동,호'];
   DAYS.forEach(function(day,di){
     ALL_SLOTS[day].forEach(function(s){
       var b=null;allBookings.forEach(function(x){if(x.slot_key===s.key)b=x;});
-      if(b)csv+=DAY_LABELS[di]+','+s.label+','+b.name+','+b.phone+','+(b.dong||'')+','+(b.ho||'')+'
-';
+      if(b)rows.push(DAY_LABELS[di]+','+s.label+','+b.name+','+b.phone+','+(b.dong||'')+','+(b.ho||''));
     });
   });
+  var csv=''+rows.join('
+');
   var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='예약현황.csv';a.click();
 }
 
@@ -511,7 +511,7 @@ document.getElementById('btn-do-login').onclick=doAdminLogin;
 document.getElementById('admin-pw').onkeydown=function(e){if(e.key==='Enter')doAdminLogin();};
 document.getElementById('btn-admin-back').onclick=function(){showPage('home');};
 document.getElementById('btn-admin-home').onclick=function(){showPage('home');};
-document.getElementById('btn-csv').onclick=exportCSV;
+document.getElementById('btn-csv').onclick=doExportCSV;
 document.getElementById('btn-logout').onclick=function(){showPage('home');};
 document.getElementById('mc-close').onclick=function(){document.getElementById('modal-cancel').classList.add('hidden');};
 document.getElementById('mc-confirm').onclick=doCancel;
