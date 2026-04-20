@@ -86,6 +86,7 @@ td{padding:8px 8px;border-bottom:1px solid #F0EAE2;vertical-align:middle}
 .block-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
 .bslot{padding:8px 4px;border:1px solid #E0D8CE;border-radius:8px;text-align:center;font-size:11px;cursor:pointer;background:#FDFAF6;transition:all 0.15s}
 .bslot.on{background:#FFF3E0;border-color:#E8CFA0;color:#8B5E00;font-weight:600}
+.bslot.half{background:#EBF2ED;border-color:#A8C8B4;color:#1C4A35;font-weight:600}
 .bslot:hover{border-color:#1C4A35}
 @media(max-width:480px){
   .grid{grid-template-columns:repeat(2,1fr)}
@@ -104,7 +105,7 @@ td{padding:8px 8px;border-bottom:1px solid #F0EAE2;vertical-align:middle}
       <div class="hdiv"></div>
       <div class="htxt">
         <div class="htitle">홈스타일링 전문가 1:1 맞춤 상담 예약</div>
-        <div class="hsub">한혜원 홈 스타일리스트 · 특화옵션 전문 상담 · 4/24(금) ~ 4/25(토)</div>
+        <div class="hsub">특화옵션 &amp; 홈 스타일링 상담 · 4/24(금) ~ 4/25(토)</div>
       </div>
     </div>
     <div class="hbtns">
@@ -117,7 +118,7 @@ td{padding:8px 8px;border-bottom:1px solid #F0EAE2;vertical-align:middle}
     <div class="notice">
       <b>안내사항</b><br>
       · 엘리프 세종 스마트시티 계약자에 한해 예약이 가능합니다.<br>
-      · 세대당 1회 신청 가능합니다.
+      · 홈페이지 사전예약을 포함해 세대당 1회 신청 가능합니다.
     </div>
     <div class="card">
       <div class="daytabs">
@@ -254,7 +255,7 @@ var DAYS=['2026-04-24','2026-04-25'];
 var DAY_LABELS=['4월 24일 (금)','4월 25일 (토)'];
 var currentDay=0,adminDay=0,blockDay=0;
 var selectedSlot=null,pendingCancelId=null,adminCancelId=null;
-var takenKeys={},blockedKeys={},allBookings=[],slotCount={};
+var takenKeys={},blockedKeys={},allBookings=[],slotCount={},maxCount={};
 
 function genSlots(day,startH){
   var s=[];
@@ -276,7 +277,7 @@ ALL_SLOTS[DAYS[1]]=genSlots(DAYS[1],9);
 
 function sbFetch(method,path,body){
   var headers={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Accept':'application/json'};
-  if(method==='POST')headers['Prefer']='return=representation';
+  if(method==='POST'||method==='PATCH')headers['Prefer']='return=representation';
   var opts={method:method,headers:headers};
   if(body)opts.body=JSON.stringify(body);
   return fetch(SB_URL+'/rest/v1/'+path,opts).then(function(r){
@@ -307,16 +308,23 @@ function renderSlots(){
   document.getElementById('count-text').textContent='';
   Promise.all([
     sbFetch('GET','bookings_2?select=slot_key'),
-    sbFetch('GET','blocked_slots?select=slot_key')
+    sbFetch('GET','blocked_slots?select=slot_key,max_count')
   ]).then(function(res){
     takenKeys={};blockedKeys={};slotCount={};
     (res[0]||[]).forEach(function(r){
       slotCount[r.slot_key]=(slotCount[r.slot_key]||0)+1;
-      if(slotCount[r.slot_key]>=2)takenKeys[r.slot_key]=true;
     });
-    (res[1]||[]).forEach(function(r){blockedKeys[r.slot_key]=true;});
+    var maxCount={};
+    (res[1]||[]).forEach(function(r){
+      maxCount[r.slot_key]=r.max_count||2;
+      if(r.max_count===0)blockedKeys[r.slot_key]=true;
+    });
     var day=DAYS[currentDay],slots=ALL_SLOTS[day],avail=0;
-    slots.forEach(function(s){if(!takenKeys[s.key]&&!blockedKeys[s.key])avail++;});
+    slots.forEach(function(s){
+      var max=maxCount[s.key]!==undefined?maxCount[s.key]:2;
+      var cnt=slotCount[s.key]||0;
+      if(!blockedKeys[s.key]&&cnt<max)avail++;
+    });
     document.getElementById('count-text').textContent='남은 상담시간 '+avail+'/'+slots.length;
     var am=slots.filter(function(s){return s.h<12;}),pm=slots.filter(function(s){return s.h>=12;});
     sa.innerHTML='';
@@ -329,12 +337,15 @@ function makeGrid(slots){
   var g=document.createElement('div');g.className='grid';
   slots.forEach(function(s){
     var el=document.createElement('div');
-    var tk=takenKeys[s.key],bl=blockedKeys[s.key],cnt=slotCount[s.key]||0;
+    var bl=blockedKeys[s.key];
+    var max=maxCount[s.key]!==undefined?maxCount[s.key]:2;
+    var cnt=slotCount[s.key]||0;
+    var tk=(!bl&&cnt>=max);
     el.className='slot'+(tk?' taken':bl?' blocked':'');
     el.innerHTML='<div class="stime">'+s.label+'</div>';
-    if(tk)el.innerHTML+='<div class="sstatus">예약완료</div>';
-    else if(bl)el.innerHTML+='<div class="sblocked">예약불가</div>';
-    else if(cnt===1)el.innerHTML+='<div style="font-size:10px;margin-top:2px;color:#1C4A35">1자리 가능</div>';
+    if(bl)el.innerHTML+='<div class="sblocked">예약불가</div>';
+    else if(tk)el.innerHTML+='<div class="sstatus">예약완료</div>';
+    else if(cnt>0&&max-cnt===1)el.innerHTML+='<div style="font-size:10px;margin-top:2px;color:#1C4A35">1자리 가능</div>';
     if(!tk&&!bl)(function(slot){el.onclick=function(){selectSlot(slot);};})(s);
     g.appendChild(el);
   });
@@ -359,8 +370,9 @@ function submitBooking(){
   var btn=document.getElementById('btn-submit');
   btn.disabled=true;btn.textContent='확인 중...';
 
+  var slotMax=maxCount[selectedSlot.key]!==undefined?maxCount[selectedSlot.key]:2;
   sbFetch('GET','bookings_2?slot_key=eq.'+encodeURIComponent(selectedSlot.key)+'&select=id').then(function(slotData){
-    if(slotData&&slotData.length>=2){
+    if(slotData&&slotData.length>=slotMax){
       document.getElementById('booking-alert').innerHTML='<div class="al er">이미 예약이 완료된 시간입니다. 다른 시간을 선택해주세요.</div>';
       btn.disabled=false;btn.textContent='예약하기';return;
     }
@@ -437,10 +449,14 @@ function doAdminLogin(){
 function renderAdmin(){
   Promise.all([
     sbFetch('GET','bookings_2?select=*&order=day.asc,slot_key.asc'),
-    sbFetch('GET','blocked_slots?select=slot_key')
+    sbFetch('GET','blocked_slots?select=slot_key,max_count')
   ]).then(function(res){
     allBookings=res[0]||[];blockedKeys={};
-    (res[1]||[]).forEach(function(r){blockedKeys[r.slot_key]=true;});
+    var maxCount={};
+    (res[1]||[]).forEach(function(r){
+      maxCount[r.slot_key]=r.max_count||2;
+      if(r.max_count===0)blockedKeys[r.slot_key]=true;
+    });
     var total=ALL_SLOTS[DAYS[0]].length+ALL_SLOTS[DAYS[1]].length;
     var taken=allBookings.length,blocked=Object.keys(blockedKeys).length;
     document.getElementById('admin-stats').innerHTML=
@@ -456,22 +472,37 @@ function renderBlockArea(){
   var g=document.createElement('div');g.className='block-grid';
   slots.forEach(function(s){
     var el=document.createElement('div');
-    el.className='bslot'+(blockedKeys[s.key]?' on':'');
-    el.textContent=s.label+(blockedKeys[s.key]?' ✕':'');
-    el.onclick=function(){toggleBlock(s.key,el);};
+    var mc=maxCount[s.key]!==undefined?maxCount[s.key]:2;
+    var stateText=mc===2?'':mc===1?' (1자리)':' ✕';
+    var stateClass=mc===2?'':mc===1?' half':' on';
+    el.className='bslot'+stateClass;
+    el.innerHTML='<div style="font-size:11px;font-weight:600">'+s.label+'</div><div style="font-size:10px;margin-top:2px">'+
+      (mc===2?'2자리':mc===1?'1자리':'예약불가')+'</div>';
+    el.onclick=function(){toggleBlock(s.key);};
+    el.title='클릭으로 변경: 2자리 → 1자리 → 예약불가 → 2자리';
     g.appendChild(el);
   });
   var ba=document.getElementById('block-area');ba.innerHTML='';ba.appendChild(g);
 }
 
-function toggleBlock(key,el){
-  if(blockedKeys[key]){
+function toggleBlock(key){
+  var cur=maxCount[key]!==undefined?maxCount[key]:2;
+  var next=cur===2?1:cur===1?0:2;
+  if(next===2){
     sbFetch('DELETE','blocked_slots?slot_key=eq.'+encodeURIComponent(key)).then(function(){
-      delete blockedKeys[key];renderAdmin();
+      delete maxCount[key];delete blockedKeys[key];renderAdmin();
     }).catch(function(e){alert('오류: '+e.message);});
-  }else{
-    sbFetch('POST','blocked_slots',{slot_key:key}).then(function(){
-      blockedKeys[key]=true;renderAdmin();
+  } else if(maxCount[key]!==undefined){
+    sbFetch('PATCH','blocked_slots?slot_key=eq.'+encodeURIComponent(key),{max_count:next}).then(function(){
+      maxCount[key]=next;
+      if(next===0)blockedKeys[key]=true; else delete blockedKeys[key];
+      renderAdmin();
+    }).catch(function(e){alert('오류: '+e.message);});
+  } else {
+    sbFetch('POST','blocked_slots',{slot_key:key,max_count:next}).then(function(){
+      maxCount[key]=next;
+      if(next===0)blockedKeys[key]=true;
+      renderAdmin();
     }).catch(function(e){alert('오류: '+e.message);});
   }
 }
