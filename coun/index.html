@@ -521,16 +521,24 @@ function toggleBlock(key){
 }
 
 function renderAdminTable(){
-  var day=DAYS[adminDay],slots=ALL_SLOTS[day],map={};
-  allBookings.forEach(function(b){if(b.day===day)map[b.slot_key]=b;});
+  var day=DAYS[adminDay],slots=ALL_SLOTS[day];
+  var bookingMap={};
+  allBookings.forEach(function(b){
+    if(b.day===day){
+      if(!bookingMap[b.slot_key])bookingMap[b.slot_key]=[];
+      bookingMap[b.slot_key].push(b);
+    }
+  });
   var html='<table><thead><tr><th>시간</th><th>성함</th><th>연락처</th><th>동·호수</th><th>상태</th><th></th></tr></thead><tbody>';
   slots.forEach(function(s){
     var max=getMax(s.key),cnt=slotCount[s.key]||0;
-    var b=map[s.key];
+    var blist=bookingMap[s.key]||[];
     if(max===0){
       html+='<tr style="opacity:0.5"><td>'+s.label+'</td><td colspan="3" style="color:#C8A870">예약불가</td><td><span class="badge bb">제외</span></td><td></td></tr>';
-    } else if(b){
-      html+='<tr><td>'+s.label+'</td><td>'+b.name+'</td><td>'+b.phone+'</td><td>'+(b.dong||'-')+'동 '+(b.ho||'-')+'호</td><td><span class="badge bt">예약완료</span></td><td><button class="btn sm danger" data-id="'+b.id+'" data-label="'+s.label+'" data-name="'+b.name+'">취소</button></td></tr>';
+    } else if(blist.length>0){
+      blist.forEach(function(b){
+        html+='<tr><td>'+s.label+'</td><td>'+b.name+'</td><td>'+b.phone+'</td><td>'+(b.dong||'-')+'동 '+(b.ho||'-')+'호</td><td><span class="badge bt">예약완료</span></td><td><button class="btn sm danger" data-id="'+b.id+'" data-label="'+s.label+'" data-name="'+b.name+'">취소</button></td></tr>';
+      });
     } else {
       html+='<tr><td>'+s.label+'</td><td style="color:#C5BDB4">-</td><td style="color:#C5BDB4">-</td><td style="color:#C5BDB4">-</td><td><span class="badge bg">가능 ('+cnt+'/'+max+')</span></td><td></td></tr>';
     }
@@ -556,8 +564,9 @@ function doExportCSV(){
   var rows=['날짜,시간,성함,연락처,동,호'];
   DAYS.forEach(function(day,di){
     ALL_SLOTS[day].forEach(function(s){
-      var b=null;allBookings.forEach(function(x){if(x.slot_key===s.key)b=x;});
-      if(b)rows.push(DAY_LABELS[di]+','+s.label+','+b.name+','+b.phone+','+(b.dong||'')+','+(b.ho||''));
+      allBookings.forEach(function(b){
+        if(b.slot_key===s.key)rows.push(DAY_LABELS[di]+','+s.label+','+b.name+','+b.phone+','+(b.dong||'')+','+(b.ho||''));
+      });
     });
   });
   var csv=rows.join('\n');
