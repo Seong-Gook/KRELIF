@@ -470,12 +470,21 @@ function renderAdmin(){
       maxCount[r.slot_key]=r.max_count||2;
       if(r.max_count===0)blockedKeys[r.slot_key]=true;
     });
-    var total=ALL_SLOTS[DAYS[0]].length+ALL_SLOTS[DAYS[1]].length;
-    var taken=allBookings.length,blocked=Object.keys(blockedKeys).length;
+    // 통계: 인원 기준으로 계산
+    var totalCap=0,totalBooked=0,totalBlocked=0;
+    [DAYS[0],DAYS[1]].forEach(function(day){
+      ALL_SLOTS[day].forEach(function(s){
+        var max=maxCount[s.key]!==undefined?maxCount[s.key]:2;
+        var cnt=slotCount[s.key]||0;
+        totalCap+=max;
+        totalBooked+=Math.min(cnt,max);
+        if(max===0)totalBlocked++;
+      });
+    });
     document.getElementById('admin-stats').innerHTML=
-      '<div class="scard"><div class="snum">'+taken+'</div><div class="slbl">전체 예약</div></div>'+
-      '<div class="scard"><div class="snum">'+(total-taken-blocked)+'</div><div class="slbl">잔여 시간</div></div>'+
-      '<div class="scard"><div class="snum">'+blocked+'</div><div class="slbl">예약불가</div></div>';
+      '<div class="scard"><div class="snum">'+totalBooked+'</div><div class="slbl">전체 예약</div></div>'+
+      '<div class="scard"><div class="snum">'+(totalCap-totalBooked)+'</div><div class="slbl">잔여 자리</div></div>'+
+      '<div class="scard"><div class="snum">'+totalBlocked+'</div><div class="slbl">예약불가</div></div>';
     renderBlockArea();renderAdminTable();
   }).catch(function(e){alert('오류: '+e.message);});
 }
@@ -486,11 +495,12 @@ function renderBlockArea(){
   slots.forEach(function(s){
     var el=document.createElement('div');
     var mc=maxCount[s.key]!==undefined?maxCount[s.key]:2;
-    var stateText=mc===2?'':mc===1?' (1자리)':' ✕';
-    var stateClass=mc===2?'':mc===1?' half':' on';
+    var cnt=slotCount[s.key]||0;
+    var remain=Math.max(0,mc-cnt);
+    var stateClass=mc===0?' on':mc===1?' half':'';
     el.className='bslot'+stateClass;
-    el.innerHTML='<div style="font-size:11px;font-weight:600">'+s.label+'</div><div style="font-size:10px;margin-top:2px">'+
-      (mc===2?'2자리':mc===1?'1자리':'예약불가')+'</div>';
+    var statusText=mc===0?'예약불가':mc===1?'1자리 (잔여'+remain+'자리)':'2자리 (잔여'+remain+'자리)';
+    el.innerHTML='<div style="font-size:11px;font-weight:600">'+s.label+'</div><div style="font-size:10px;margin-top:2px">'+statusText+'</div>';
     el.onclick=function(){toggleBlock(s.key);};
     el.title='클릭으로 변경: 2자리 → 1자리 → 예약불가 → 2자리';
     g.appendChild(el);
