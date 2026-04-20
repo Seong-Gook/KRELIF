@@ -350,9 +350,13 @@ function makeGrid(slots){
     var tk=(!bl&&cnt>=max);
     el.className='slot'+(tk?' taken':bl?' blocked':'');
     el.innerHTML='<div class="stime">'+s.label+'</div>';
-    if(bl)el.innerHTML+='<div class="sblocked">예약불가</div>';
-    else if(tk)el.innerHTML+='<div class="sstatus">예약완료</div>';
-    else if(cnt>0&&max-cnt===1)el.innerHTML+='<div style="font-size:10px;margin-top:2px;color:#1C4A35">1자리 가능</div>';
+    if(bl){el.innerHTML+='<div class="sblocked">예약불가</div>';}
+    else if(tk){el.innerHTML+='<div class="sstatus">예약완료</div>';}
+    else{
+      var remain=max-cnt;
+      var remainText=remain===1?'1자리 가능':'2자리 가능';
+      el.innerHTML+='<div style="font-size:10px;margin-top:2px;color:#1C4A35">'+remainText+'</div>';
+    }
     if(!tk&&!bl)(function(slot){el.onclick=function(){selectSlot(slot);};})(s);
     g.appendChild(el);
   });
