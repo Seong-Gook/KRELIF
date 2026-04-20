@@ -325,11 +325,14 @@ function renderSlots(){
       var cnt=slotCount[s.key]||0;
       if(max>0&&cnt<max)avail++;
     });
-    var totalCapacity=0;
-    slots.forEach(function(s){totalCapacity+=(maxCount[s.key]!==undefined?maxCount[s.key]:2);});
-    var totalBooked=0;
-    slots.forEach(function(s){totalBooked+=Math.min(slotCount[s.key]||0,maxCount[s.key]!==undefined?maxCount[s.key]:2);});
-    document.getElementById('count-text').textContent='남은 상담시간 '+(totalCapacity-totalBooked)+'/'+totalCapacity;
+    var totalCap=0,totalAvail=0;
+    slots.forEach(function(s){
+      var max=maxCount[s.key]!==undefined?maxCount[s.key]:2;
+      var cnt=slotCount[s.key]||0;
+      totalCap+=max;
+      totalAvail+=Math.max(0,max-cnt);
+    });
+    document.getElementById('count-text').textContent='남은 상담시간 '+totalAvail+'/'+totalCap;
     var am=slots.filter(function(s){return s.h<12;}),pm=slots.filter(function(s){return s.h>=12;});
     sa.innerHTML='';
     if(am.length){var h=document.createElement('div');h.className='section-head';h.textContent='오전';sa.appendChild(h);sa.appendChild(makeGrid(am));}
