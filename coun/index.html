@@ -255,17 +255,17 @@ var DAYS=['2026-04-24','2026-04-25'];
 var DAY_LABELS=['4월 24일 (금)','4월 25일 (토)'];
 var currentDay=0,adminDay=0,blockDay=0;
 var selectedSlot=null,pendingCancelId=null,adminCancelId=null;
-var takenKeys={},blockedKeys={},allBookings=[],slotCount={},maxCount={};
+// slotCount: 슬롯별 실제 예약 수
+// slotMax: 슬롯별 최대 인원 (기본 2, DB에서 가져옴)
+var slotCount={},slotMax={},allBookings=[];
 
 function genSlots(day,startH){
   var s=[];
   for(var h=startH;h<17;h++){
     for(var m=0;m<60;m+=20){
-      var sh=h<10?'0'+h:''+h;
-      var sm=m<10?'0'+m:''+m;
+      var sh=h<10?'0'+h:''+h,sm=m<10?'0'+m:''+m;
       var nm=m+20,nh=h+(nm>=60?1:0),em=nm%60;
-      var eh=nh<10?'0'+nh:''+nh;
-      var emStr=em<10?'0'+em:''+em;
+      var eh=nh<10?'0'+nh:''+nh,emStr=em<10?'0'+em:''+em;
       s.push({key:day+'_'+sh+sm,label:sh+':'+sm+'~'+eh+':'+emStr,day:day,h:h});
     }
   }
@@ -289,6 +289,25 @@ function sbFetch(method,path,body){
 
 function normalizePhone(p){return p.replace(/[^0-9]/g,'');}
 
+function loadData(){
+  return Promise.all([
+    sbFetch('GET','bookings_2?select=slot_key'),
+    sbFetch('GET','blocked_slots_2?select=slot_key,max_count')
+  ]).then(function(res){
+    slotCount={};slotMax={};
+    (res[0]||[]).forEach(function(r){
+      slotCount[r.slot_key]=(slotCount[r.slot_key]||0)+1;
+    });
+    (res[1]||[]).forEach(function(r){
+      slotMax[r.slot_key]=r.max_count; // 0, 1, or 2
+    });
+  });
+}
+
+function getMax(key){
+  return slotMax[key]!==undefined?slotMax[key]:2;
+}
+
 function showPage(name){
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
   document.getElementById('page-'+name).classList.add('active');
@@ -306,29 +325,11 @@ function renderSlots(){
   var sa=document.getElementById('slot-area');
   sa.innerHTML='<div class="loading"><div class="spin"></div>불러오는 중...</div>';
   document.getElementById('count-text').textContent='';
-  Promise.all([
-    sbFetch('GET','bookings_2?select=slot_key'),
-    sbFetch('GET','blocked_slots_2?select=slot_key,max_count')
-  ]).then(function(res){
-    takenKeys={};blockedKeys={};slotCount={};
-    (res[0]||[]).forEach(function(r){
-      slotCount[r.slot_key]=(slotCount[r.slot_key]||0)+1;
-    });
-    var maxCount={};
-    (res[1]||[]).forEach(function(r){
-      maxCount[r.slot_key]=r.max_count||2;
-      if(r.max_count===0)blockedKeys[r.slot_key]=true;
-    });
-    var day=DAYS[currentDay],slots=ALL_SLOTS[day],avail=0;
-    slots.forEach(function(s){
-      var max=maxCount[s.key]!==undefined?maxCount[s.key]:2;
-      var cnt=slotCount[s.key]||0;
-      if(max>0&&cnt<max)avail++;
-    });
+  loadData().then(function(){
+    var day=DAYS[currentDay],slots=ALL_SLOTS[day];
     var totalCap=0,totalAvail=0;
     slots.forEach(function(s){
-      var max=maxCount[s.key]!==undefined?maxCount[s.key]:2;
-      var cnt=slotCount[s.key]||0;
+      var max=getMax(s.key),cnt=slotCount[s.key]||0;
       totalCap+=max;
       totalAvail+=Math.max(0,max-cnt);
     });
@@ -343,21 +344,21 @@ function renderSlots(){
 function makeGrid(slots){
   var g=document.createElement('div');g.className='grid';
   slots.forEach(function(s){
+    var max=getMax(s.key),cnt=slotCount[s.key]||0;
     var el=document.createElement('div');
-    var bl=blockedKeys[s.key];
-    var max=maxCount[s.key]!==undefined?maxCount[s.key]:2;
-    var cnt=slotCount[s.key]||0;
-    var tk=(!bl&&cnt>=max);
-    el.className='slot'+(tk?' taken':bl?' blocked':'');
-    el.innerHTML='<div class="stime">'+s.label+'</div>';
-    if(bl){el.innerHTML+='<div class="sblocked">예약불가</div>';}
-    else if(tk){el.innerHTML+='<div class="sstatus">예약완료</div>';}
-    else{
+    if(max===0){
+      el.className='slot blocked';
+      el.innerHTML='<div class="stime">'+s.label+'</div><div class="sblocked">예약불가</div>';
+    } else if(cnt>=max){
+      el.className='slot taken';
+      el.innerHTML='<div class="stime">'+s.label+'</div><div class="sstatus">예약완료</div>';
+    } else {
+      el.className='slot';
       var remain=max-cnt;
-      var remainText=remain===1?'1자리 가능':'2자리 가능';
-      el.innerHTML+='<div style="font-size:10px;margin-top:2px;color:#1C4A35">'+remainText+'</div>';
+      var availText=remain===1?'1자리 가능':'2자리 가능';
+      el.innerHTML='<div class="stime">'+s.label+'</div><div style="font-size:10px;margin-top:2px;color:#1C4A35">'+availText+'</div>';
+      (function(slot){el.onclick=function(){selectSlot(slot);};})(s);
     }
-    if(!tk&&!bl)(function(slot){el.onclick=function(){selectSlot(slot);};})(s);
     g.appendChild(el);
   });
   return g;
@@ -381,29 +382,23 @@ function submitBooking(){
   var btn=document.getElementById('btn-submit');
   btn.disabled=true;btn.textContent='확인 중...';
 
-  var slotMax=maxCount[selectedSlot.key]!==undefined?maxCount[selectedSlot.key]:2;
-  sbFetch('GET','bookings_2?slot_key=eq.'+encodeURIComponent(selectedSlot.key)+'&select=id').then(function(slotData){
-    if(slotData&&slotData.length>=slotMax){
+  // 최신 데이터 다시 로드해서 정확히 체크
+  loadData().then(function(){
+    var max=getMax(selectedSlot.key),cnt=slotCount[selectedSlot.key]||0;
+    if(max===0||cnt>=max){
       document.getElementById('booking-alert').innerHTML='<div class="al er">이미 예약이 완료된 시간입니다. 다른 시간을 선택해주세요.</div>';
       btn.disabled=false;btn.textContent='예약하기';return;
     }
-    sbFetch('GET','bookings_2?dong=eq.'+encodeURIComponent(dong)+'&ho=eq.'+encodeURIComponent(ho)+'&select=id').then(function(data){
+    return sbFetch('GET','bookings_2?dong=eq.'+encodeURIComponent(dong)+'&ho=eq.'+encodeURIComponent(ho)+'&select=id').then(function(data){
       if(data&&data.length>0){
         document.getElementById('booking-alert').innerHTML='<div class="al wa">※ 같은 세대에서 신청 내역이 있습니다.</div>';
         btn.disabled=false;btn.textContent='예약하기';return;
       }
       btn.textContent='예약 중...';
-      sbFetch('POST','bookings_2',{slot_key:selectedSlot.key,day:selectedSlot.day,label:selectedSlot.label,name:name,phone:phone,dong:dong,ho:ho}).then(function(){
+      return sbFetch('POST','bookings_2',{slot_key:selectedSlot.key,day:selectedSlot.day,label:selectedSlot.label,name:name,phone:phone,dong:dong,ho:ho}).then(function(){
         document.getElementById('done-info').textContent=DAY_LABELS[DAYS.indexOf(selectedSlot.day)]+'  '+selectedSlot.label+'  ·  '+name+' 님 ('+dong+'동 '+ho+'호)';
         showPage('done');
-      }).catch(function(e){
-        var msg=(e.message.indexOf('unique')>=0||e.message.indexOf('duplicate')>=0)?'이미 예약된 시간입니다. 다른 시간을 선택해주세요.':'오류: '+e.message;
-        document.getElementById('booking-alert').innerHTML='<div class="al er">'+msg+'</div>';
-        btn.disabled=false;btn.textContent='예약하기';
       });
-    }).catch(function(e){
-      document.getElementById('booking-alert').innerHTML='<div class="al er">오류: '+e.message+'</div>';
-      btn.disabled=false;btn.textContent='예약하기';
     });
   }).catch(function(e){
     document.getElementById('booking-alert').innerHTML='<div class="al er">오류: '+e.message+'</div>';
@@ -417,8 +412,7 @@ function doLookup(){
   if(!name||!phone){document.getElementById('lookup-alert').innerHTML='<div class="al er">성함과 연락처를 모두 입력해주세요.</div>';return;}
   document.getElementById('lookup-alert').innerHTML='';
   sbFetch('GET','bookings_2?name=eq.'+encodeURIComponent(name)+'&phone=eq.'+encodeURIComponent(phone)+'&select=*').then(function(data){
-    var el=document.getElementById('lookup-result');
-    el.innerHTML='';
+    var el=document.getElementById('lookup-result');el.innerHTML='';
     if(!data||data.length===0){el.innerHTML='<div class="al er" style="margin-top:8px">일치하는 예약 내역이 없습니다.</div>';return;}
     var card=document.createElement('div');card.className='card';card.style.marginTop='8px';
     var title=document.createElement('div');title.className='stitle';title.textContent='예약 내역';card.appendChild(title);
@@ -442,7 +436,6 @@ function openCancelModal(id,info){
   document.getElementById('mc-info').textContent='"'+info+'" 예약을 취소하시겠습니까?';
   document.getElementById('modal-cancel').classList.remove('hidden');
 }
-
 function doCancel(){
   sbFetch('DELETE','bookings_2?id=eq.'+pendingCancelId).then(function(){
     document.getElementById('modal-cancel').classList.add('hidden');
@@ -462,20 +455,15 @@ function renderAdmin(){
     sbFetch('GET','bookings_2?select=*&order=day.asc,slot_key.asc'),
     sbFetch('GET','blocked_slots_2?select=slot_key,max_count')
   ]).then(function(res){
-    allBookings=res[0]||[];blockedKeys={};maxCount={};slotCount={};
-    (res[0]||[]).forEach(function(r){
-      slotCount[r.slot_key]=(slotCount[r.slot_key]||0)+1;
-    });
-    (res[1]||[]).forEach(function(r){
-      maxCount[r.slot_key]=r.max_count||2;
-      if(r.max_count===0)blockedKeys[r.slot_key]=true;
-    });
-    // 통계: 인원 기준으로 계산
-    var totalCap=0,totalBooked=0,totalBlocked=0;
+    allBookings=res[0]||[];
+    slotCount={};slotMax={};
+    allBookings.forEach(function(r){slotCount[r.slot_key]=(slotCount[r.slot_key]||0)+1;});
+    (res[1]||[]).forEach(function(r){slotMax[r.slot_key]=r.max_count;});
+    // 통계
+    var totalBooked=0,totalCap=0,totalBlocked=0;
     [DAYS[0],DAYS[1]].forEach(function(day){
       ALL_SLOTS[day].forEach(function(s){
-        var max=maxCount[s.key]!==undefined?maxCount[s.key]:2;
-        var cnt=slotCount[s.key]||0;
+        var max=getMax(s.key),cnt=slotCount[s.key]||0;
         totalCap+=max;
         totalBooked+=Math.min(cnt,max);
         if(max===0)totalBlocked++;
@@ -493,110 +481,59 @@ function renderBlockArea(){
   var day=DAYS[blockDay],slots=ALL_SLOTS[day];
   var g=document.createElement('div');g.className='block-grid';
   slots.forEach(function(s){
+    var max=getMax(s.key),cnt=slotCount[s.key]||0;
     var el=document.createElement('div');
-    var mc=maxCount[s.key]!==undefined?maxCount[s.key]:2;
-    var cnt=slotCount[s.key]||0;
-    var remain=Math.max(0,mc-cnt);
-    var stateClass=mc===0?' on':mc===1?' half':'';
+    var stateClass=max===0?' on':max===1?' half':'';
     el.className='bslot'+stateClass;
-    var statusText=mc===0?'예약불가':mc===1?'1자리 (잔여'+remain+'자리)':'2자리 (잔여'+remain+'자리)';
-    el.innerHTML='<div style="font-size:11px;font-weight:600">'+s.label+'</div><div style="font-size:10px;margin-top:2px">'+statusText+'</div>';
+    // 표시: cnt/max
+    el.innerHTML='<div style="font-size:11px;font-weight:600">'+s.label+'</div>'+
+      '<div style="font-size:11px;margin-top:3px">'+cnt+'/'+max+'</div>';
     el.onclick=function(){toggleBlock(s.key);};
-    el.title='클릭으로 변경: 2자리 → 1자리 → 예약불가 → 2자리';
+    el.title='클릭: 2자리 → 1자리 → 예약불가 → 2자리';
     g.appendChild(el);
   });
   var ba=document.getElementById('block-area');ba.innerHTML='';ba.appendChild(g);
 }
 
 function toggleBlock(key){
-  var cur=maxCount[key]!==undefined?maxCount[key]:2;
+  var cur=getMax(key); // 현재 max: 2, 1, 0
   var next=cur===2?1:cur===1?0:2;
 
-  function afterUpdate(){
-    maxCount[key]=next;
-    if(next===0)blockedKeys[key]=true;
-    else delete blockedKeys[key];
+  function done(){
+    if(next===2){delete slotMax[key];}
+    else{slotMax[key]=next;}
     renderAdmin();
   }
 
   if(next===2){
+    // 0또는1 → 2: DB 레코드 삭제
     sbFetch('DELETE','blocked_slots_2?slot_key=eq.'+encodeURIComponent(key))
-      .then(function(){delete maxCount[key];delete blockedKeys[key];renderAdmin();})
-      .catch(function(e){alert('삭제 오류: '+e.message);});
+      .then(done).catch(function(e){alert('오류: '+e.message);});
+  } else if(cur===2){
+    // 2 → 1: DB에 새로 INSERT
+    sbFetch('POST','blocked_slots_2',{slot_key:key,max_count:next})
+      .then(done).catch(function(e){alert('오류: '+e.message);});
   } else {
-    sbFetch('GET','blocked_slots_2?slot_key=eq.'+encodeURIComponent(key)+'&select=id')
-      .then(function(existing){
-        if(existing&&existing.length>0){
-          return sbFetch('PATCH','blocked_slots_2?slot_key=eq.'+encodeURIComponent(key),{max_count:next})
-            .then(function(){afterUpdate();});
-        } else {
-          return sbFetch('POST','blocked_slots_2',{slot_key:key,max_count:next})
-            .then(function(){afterUpdate();});
-        }
-      })
-      .catch(function(e){alert('설정 오류: '+e.message);});
+    // 1 → 0: 이미 DB에 있음, PATCH
+    sbFetch('PATCH','blocked_slots_2?slot_key=eq.'+encodeURIComponent(key),{max_count:next})
+      .then(done).catch(function(e){alert('오류: '+e.message);});
   }
 }
-
-function renderBlockArea(){
-  var day=DAYS[blockDay],slots=ALL_SLOTS[day];
-  var g=document.createElement('div');g.className='block-grid';
-  slots.forEach(function(s){
-    var el=document.createElement('div');
-    var mc=maxCount[s.key]!==undefined?maxCount[s.key]:2;
-    var cnt=slotCount[s.key]||0;
-    var remain=Math.max(0,mc-cnt);
-    var stateClass=mc===0?' on':mc===1?' half':'';
-    el.className='bslot'+stateClass;
-    var statusText=mc===0?'예약불가':mc===1?'1자리 (잔여'+remain+'자리)':'2자리 (잔여'+remain+'자리)';
-    el.innerHTML='<div style="font-size:11px;font-weight:600">'+s.label+'</div><div style="font-size:10px;margin-top:2px">'+statusText+'</div>';
-    el.onclick=function(){toggleBlock(s.key);};
-    el.title='클릭으로 변경: 2자리 → 1자리 → 예약불가 → 2자리';
-    g.appendChild(el);
-  });
-  var ba=document.getElementById('block-area');ba.innerHTML='';ba.appendChild(g);
-}
-
-function toggleBlock(key){
-  var cur=maxCount[key]!==undefined?maxCount[key]:2;
-  var next=cur===2?1:cur===1?0:2;
-
-  if(next===2){
-    // 예약불가→2자리: DB에서 삭제
-    sbFetch('DELETE','blocked_slots_2?slot_key=eq.'+encodeURIComponent(key)).then(function(){
-      delete maxCount[key];
-      delete blockedKeys[key];
-      renderAdmin();
-    }).catch(function(e){alert('오류: '+e.message);});
-  } else {
-    // DB에 이미 있는지 먼저 확인
-    sbFetch('GET','blocked_slots_2?slot_key=eq.'+encodeURIComponent(key)+'&select=id').then(function(existing){
-      if(existing&&existing.length>0){
-        // 이미 있으면 PATCH
-        return sbFetch('PATCH','blocked_slots_2?slot_key=eq.'+encodeURIComponent(key),{max_count:next});
-      } else {
-        // 없으면 POST
-        return sbFetch('POST','blocked_slots_2',{slot_key:key,max_count:next});
-      }
-    }).then(function(){
-      maxCount[key]=next;
-      if(next===0)blockedKeys[key]=true;
-      else delete blockedKeys[key];
-      renderAdmin();
-    }).catch(function(e){alert('오류: '+e.message);});
-  }
-}
-
 
 function renderAdminTable(){
   var day=DAYS[adminDay],slots=ALL_SLOTS[day],map={};
   allBookings.forEach(function(b){if(b.day===day)map[b.slot_key]=b;});
   var html='<table><thead><tr><th>시간</th><th>성함</th><th>연락처</th><th>동·호수</th><th>상태</th><th></th></tr></thead><tbody>';
   slots.forEach(function(s){
-    var b=map[s.key],bl=blockedKeys[s.key];
-    if(b){html+='<tr><td>'+s.label+'</td><td>'+b.name+'</td><td>'+b.phone+'</td><td>'+(b.dong||'-')+'동 '+(b.ho||'-')+'호</td><td><span class="badge bt">예약완료</span></td><td><button class="btn sm danger" data-id="'+b.id+'" data-label="'+s.label+'" data-name="'+b.name+'">취소</button></td></tr>';}
-    else if(bl){html+='<tr style="opacity:0.5"><td>'+s.label+'</td><td colspan="3" style="color:#C8A870">예약불가</td><td><span class="badge bb">제외</span></td><td></td></tr>';}
-    else{html+='<tr><td>'+s.label+'</td><td style="color:#C5BDB4">-</td><td style="color:#C5BDB4">-</td><td style="color:#C5BDB4">-</td><td><span class="badge bg">가능</span></td><td></td></tr>';}
+    var max=getMax(s.key),cnt=slotCount[s.key]||0;
+    var b=map[s.key];
+    if(max===0){
+      html+='<tr style="opacity:0.5"><td>'+s.label+'</td><td colspan="3" style="color:#C8A870">예약불가</td><td><span class="badge bb">제외</span></td><td></td></tr>';
+    } else if(b){
+      html+='<tr><td>'+s.label+'</td><td>'+b.name+'</td><td>'+b.phone+'</td><td>'+(b.dong||'-')+'동 '+(b.ho||'-')+'호</td><td><span class="badge bt">예약완료</span></td><td><button class="btn sm danger" data-id="'+b.id+'" data-label="'+s.label+'" data-name="'+b.name+'">취소</button></td></tr>';
+    } else {
+      html+='<tr><td>'+s.label+'</td><td style="color:#C5BDB4">-</td><td style="color:#C5BDB4">-</td><td style="color:#C5BDB4">-</td><td><span class="badge bg">가능 ('+cnt+'/'+max+')</span></td><td></td></tr>';
+    }
   });
   html+='</tbody></table>';
   var el=document.getElementById('admin-table');el.innerHTML=html;
@@ -623,7 +560,7 @@ function doExportCSV(){
       if(b)rows.push(DAY_LABELS[di]+','+s.label+','+b.name+','+b.phone+','+(b.dong||'')+','+(b.ho||''));
     });
   });
-  var csv='\uFEFF'+rows.join('\n');
+  var csv=rows.join('\n');
   var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='예약현황.csv';a.click();
 }
 
