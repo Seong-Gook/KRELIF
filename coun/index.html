@@ -462,8 +462,10 @@ function renderAdmin(){
     sbFetch('GET','bookings_2?select=*&order=day.asc,slot_key.asc'),
     sbFetch('GET','blocked_slots_2?select=slot_key,max_count')
   ]).then(function(res){
-    allBookings=res[0]||[];blockedKeys={};
-    var maxCount={};
+    allBookings=res[0]||[];blockedKeys={};maxCount={};slotCount={};
+    (res[0]||[]).forEach(function(r){
+      slotCount[r.slot_key]=(slotCount[r.slot_key]||0)+1;
+    });
     (res[1]||[]).forEach(function(r){
       maxCount[r.slot_key]=r.max_count||2;
       if(r.max_count===0)blockedKeys[r.slot_key]=true;
