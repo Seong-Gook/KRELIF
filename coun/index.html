@@ -308,7 +308,7 @@ function renderSlots(){
   document.getElementById('count-text').textContent='';
   Promise.all([
     sbFetch('GET','bookings_2?select=slot_key'),
-    sbFetch('GET','blocked_slots?select=slot_key,max_count')
+    sbFetch('GET','blocked_slots_2?select=slot_key,max_count')
   ]).then(function(res){
     takenKeys={};blockedKeys={};slotCount={};
     (res[0]||[]).forEach(function(r){
@@ -449,7 +449,7 @@ function doAdminLogin(){
 function renderAdmin(){
   Promise.all([
     sbFetch('GET','bookings_2?select=*&order=day.asc,slot_key.asc'),
-    sbFetch('GET','blocked_slots?select=slot_key,max_count')
+    sbFetch('GET','blocked_slots_2?select=slot_key,max_count')
   ]).then(function(res){
     allBookings=res[0]||[];blockedKeys={};
     var maxCount={};
@@ -489,17 +489,17 @@ function toggleBlock(key){
   var cur=maxCount[key]!==undefined?maxCount[key]:2;
   var next=cur===2?1:cur===1?0:2;
   if(next===2){
-    sbFetch('DELETE','blocked_slots?slot_key=eq.'+encodeURIComponent(key)).then(function(){
+    sbFetch('DELETE','blocked_slots_2?slot_key=eq.'+encodeURIComponent(key)).then(function(){
       delete maxCount[key];delete blockedKeys[key];renderAdmin();
     }).catch(function(e){alert('오류: '+e.message);});
   } else if(maxCount[key]!==undefined){
-    sbFetch('PATCH','blocked_slots?slot_key=eq.'+encodeURIComponent(key),{max_count:next}).then(function(){
+    sbFetch('PATCH','blocked_slots_2?slot_key=eq.'+encodeURIComponent(key),{max_count:next}).then(function(){
       maxCount[key]=next;
       if(next===0)blockedKeys[key]=true; else delete blockedKeys[key];
       renderAdmin();
     }).catch(function(e){alert('오류: '+e.message);});
   } else {
-    sbFetch('POST','blocked_slots',{slot_key:key,max_count:next}).then(function(){
+    sbFetch('POST','blocked_slots_2',{slot_key:key,max_count:next}).then(function(){
       maxCount[key]=next;
       if(next===0)blockedKeys[key]=true;
       renderAdmin();
